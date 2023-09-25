@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 
 import Searchbar from 'components/Searchbar/Searchbar';
 import ImageGallery from 'components/ImageGallery/ImageGallery';
@@ -13,104 +13,91 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Container, Image } from './App.styled';
 
-class App extends Component {
-  state = {
-    searchValue: '',
-    page: 1,
-    hits: null,
-    isLoader: false,
-    isLoadBtn: false,
-    modalData: null,
-  };
+function App() {
+  const [searchValue, setSearchValue] = useState('');
+  const [page, setPage] = useState(1);
+  const [hits, setHits] = useState('');
+  const [isLoader, setIsLoader] = useState(false);
+  const [isLoadBtn, setIsLoadBtn] = useState(false);
+  const [modalData, setModalData] = useState(null);
 
-  componentDidUpdate(_, prevState) {
-    const { searchValue, page } = this.state;
+  useEffect(() => {
+    if (!searchValue) return;
 
-    if (searchValue !== prevState.searchValue || page !== prevState.page)
-      this.fetchImage();
-  }
+    const fetchImage = async () => {
+      try {
+        setIsLoader(true);
 
-  fetchImage = async () => {
-    const { searchValue, page } = this.state;
+        const data = await getImage(searchValue, page);
 
-    try {
-      this.setState({ isLoader: true });
+        if (!data.totalHits) {
+          toast.warning(
+            `"${searchValue}" not found. Please enter something else.`
+          );
+          return;
+        }
 
-      const data = await getImage(searchValue, page);
+        const lastPage = Math.ceil(data.totalHits / 12);
+        if (page === lastPage) {
+          setIsLoadBtn(true);
+          toast.info("That's all images");
+        }
 
-      if (!data.totalHits) {
-        toast.warning(
-          `"${searchValue}" not found. Please enter something else.`
-        );
-        return;
+        setHits(prev => [...prev, ...data.hits]);
+      } catch (error) {
+        toast.error('Something went wrong. Please try again later.');
+      } finally {
+        setIsLoader(false);
       }
+    };
 
-      const lastPage = Math.ceil(data.totalHits / 12);
-      if (page === lastPage) {
-        this.setState({ isLoadBtn: true });
-        toast.info('Thats all images');
-      }
+    fetchImage();
+  }, [page, searchValue]);
 
-      this.setState(prev => ({ hits: [...prev.hits, ...data.hits] }));
-    } catch (error) {
-      toast.error('Something went wrong. Please try again later.');
-    } finally {
-      this.setState({ isLoader: false });
-    }
+  const handleSubmit = searchValue => {
+    setSearchValue(searchValue);
+    setPage(1);
+    setHits([]);
+    setIsLoadBtn(false);
   };
 
-  handleSubmit = searchValue => {
-    this.setState({ searchValue, page: 1, hits: [], isLoadBtn: false });
+  const handleLoadMore = () => {
+    setPage(prev => prev + 1);
   };
 
-  handleLoadMore = () => {
-    this.setState(prev => ({ page: prev.page + 1 }));
+  const handleImageClick = (largeImageURL, tags) => {
+    setModalData({ modalImage: largeImageURL, tags });
   };
 
-  // toggleModal = () => {
-  //   this.setState(prev => ({ showModal: !prev.showModal }));
-  // };
-
-  handleImageClick = (largeImageURL, tags) => {
-    this.setState({ modalData: { modalImage: largeImageURL, tags } });
-    // this.toggleModal();
+  const closeModal = () => {
+    setModalData(null);
   };
 
-  closeModal = () => {
-    this.setState({ modalData: null });
-    // this.toggleModal();
-  };
+  const showLoadBtn = hits && hits.length > 0 && !isLoadBtn;
 
-  render() {
-    const { hits, isLoader, isLoadBtn, modalData } = this.state;
-    const showLoadBtn = hits && hits.length > 0 && !isLoadBtn;
-    return (
-      <Container>
-        <Searchbar onSubmit={this.handleSubmit} />
+  return (
+    <Container>
+      <Searchbar onSubmit={handleSubmit} />
 
-        {isLoader && <Loader />}
+      {isLoader && <Loader />}
 
-        {hits && (
-          <ImageGallery>
-            <ImageGalleryItem
-              images={hits}
-              onImageClick={this.handleImageClick}
-            />
-          </ImageGallery>
-        )}
+      {hits && (
+        <ImageGallery>
+          <ImageGalleryItem images={hits} onImageClick={handleImageClick} />
+        </ImageGallery>
+      )}
 
-        {showLoadBtn && <Button onBtnClick={() => this.handleLoadMore()} />}
+      {showLoadBtn && <Button onBtnClick={() => handleLoadMore()} />}
 
-        {modalData && (
-          <Modal onClose={this.closeModal}>
-            <Image src={modalData.modalImage} alt={modalData.tags} />
-          </Modal>
-        )}
+      {modalData && (
+        <Modal onClose={closeModal}>
+          <Image src={modalData.modalImage} alt={modalData.tags} />
+        </Modal>
+      )}
 
-        <ToastContainer autoClose={3000} theme="colored" />
-      </Container>
-    );
-  }
+      <ToastContainer autoClose={3000} theme="colored" />
+    </Container>
+  );
 }
 
 export default App;
