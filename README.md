@@ -1,4 +1,4 @@
-## PhoneBook App
+## Images Search App
 
 1. Used [axios](https://axios-http.com/) from
    [Pixabay Developer API](https://pixabay.com/service/about/api/)
